@@ -1,3 +1,4 @@
+// CAN ASSIGN IMAGE FOR BUTTONS AT BOTTOM BAR
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
@@ -40,27 +41,19 @@ export default function Layout() {
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="map"
         options={{
-          tabBarLabel: 'Explore',
+          tabBarLabel: 'Map',
           tabBarButton: (props) => <HapticTab {...props} />,
           tabBarIcon: ({ color }) => <IconSymbol name="map" color={color} size={24} />,
         }}
       />
       <Tabs.Screen
-        name="reports"
+        name="my-reports"
         options={{
-          tabBarLabel: 'Reports',
+          tabBarLabel: 'My Reports',
           tabBarButton: (props) => <HapticTab {...props} />,
           tabBarIcon: ({ color }) => <IconSymbol name="doc.text" color={color} size={24} />,
-        }}
-      />
-      <Tabs.Screen
-        name="issue"
-        options={{
-          tabBarLabel: 'Issue',
-          tabBarButton: (props) => <HapticTab {...props} />,
-          tabBarIcon: ({ color }) => <IconSymbol name="exclamationmark.triangle" color={color} size={24} />,
         }}
       />
     </Tabs>

@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Alert } from 'react-native';
-import { router } from 'expo-router';
+//CAN CHANGE ROUTING FOR ALL BUTTONS AND THEIR PROPERTIES AND PLACEMENT ON HOME SCREEN
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
+import { ActivityItem, QuickStats, User } from '../../types';
 import { StorageService } from '../../utils/storage';
-import { User, ActivityItem, QuickStats } from '../../types';
 
 // Mock data for dashboard
 const recentActivity: ActivityItem[] = [
@@ -110,7 +111,7 @@ export default function HomeScreen() {
             <Ionicons name="location" size={20} color="#ffffff" />
           </View>
           <View>
-            <Text style={styles.appName}>CivicReport</Text>
+            <Text style={styles.appName}>CivicConnect</Text>
             <Text style={styles.appTagline}>Making communities better</Text>
           </View>
         </View>
@@ -136,7 +137,7 @@ export default function HomeScreen() {
           </Text>
           <Button
             title="Report New Issue"
-            onPress={() => router.push('/report')}
+            onPress={() => router.push('/camera-report')}
             style={styles.primaryButton}
             icon={<Ionicons name="add" size={20} color="#ffffff" />}
           />
@@ -144,21 +145,6 @@ export default function HomeScreen() {
 
         {/* Quick Actions */}
         <View style={styles.quickActions}>
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => router.push('/report')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: '#dbeafe' }]}>
-              <Ionicons name="camera" size={24} color="#3b82f6" />
-            </View>
-            <View style={styles.actionContent}>
-              <Text style={styles.actionTitle}>Report Issue</Text>
-              <Text style={styles.actionDescription}>
-                Take a photo and report a civic problem
-              </Text>
-            </View>
-          </TouchableOpacity>
-
           <TouchableOpacity
             style={styles.actionCard}
             onPress={() => router.push('/map')}
