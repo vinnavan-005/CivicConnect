@@ -7,12 +7,19 @@ import * as Location from 'expo-location';
 import { useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 
+// Initialize Mapbox
+import Mapbox from '@rnmapbox/maps';
+import { MAPBOX_ACCESS_TOKEN } from './src/config/mapbox';
+
 // Import screens
 import HeatMapScreen from './src/screens/HeatMapScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import MyReportsScreen from './src/screens/MyReportsScreen';
 import ReportDetailScreen from './src/screens/ReportDetailScreen';
 import ReportIssueScreen from './src/screens/ReportIssueScreen';
+
+// Initialize Mapbox with access token
+Mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();

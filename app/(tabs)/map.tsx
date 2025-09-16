@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
 
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Input } from '../../components/ui/input';
 import { IssueMarker } from '../../types';
 
-// Mock data for nearby issues
+// Mock data for nearby issues - your original data
 const mockIssues: IssueMarker[] = [
   {
     id: '1',
@@ -18,7 +19,7 @@ const mockIssues: IssueMarker[] = [
     upvotes: 12,
     status: 'in-progress',
     timestamp: '2 hours ago',
-    coordinates: { lat: 40.7128, lng: -74.0060 }
+    coordinates: { lat: 12.9716, lng: 77.6413 }
   },
   {
     id: '2',
@@ -29,7 +30,7 @@ const mockIssues: IssueMarker[] = [
     upvotes: 8,
     status: 'pending',
     timestamp: '5 hours ago',
-    coordinates: { lat: 40.7130, lng: -74.0065 }
+    coordinates: { lat: 12.9730, lng: 77.6420 }
   },
   {
     id: '3',
@@ -40,7 +41,7 @@ const mockIssues: IssueMarker[] = [
     upvotes: 15,
     status: 'resolved',
     timestamp: '1 day ago',
-    coordinates: { lat: 40.7125, lng: -74.0055 }
+    coordinates: { lat: 12.9700, lng: 77.6400 }
   },
   {
     id: '4',
@@ -51,7 +52,7 @@ const mockIssues: IssueMarker[] = [
     upvotes: 6,
     status: 'pending',
     timestamp: '3 hours ago',
-    coordinates: { lat: 40.7135, lng: -74.0070 }
+    coordinates: { lat: 12.9750, lng: 77.6450 }
   },
   {
     id: '5',
@@ -62,7 +63,7 @@ const mockIssues: IssueMarker[] = [
     upvotes: 4,
     status: 'in-progress',
     timestamp: '6 hours ago',
-    coordinates: { lat: 40.7120, lng: -74.0050 }
+    coordinates: { lat: 12.9680, lng: 77.6380 }
   }
 ];
 
@@ -93,83 +94,31 @@ export default function IssueMapScreen() {
     return matchesSearch && matchesCategory;
   });
 
-  const handleUpvote = (issueId: string) => {
-    console.log('Upvoted issue:', issueId);
-    // In real app, this would update the backend and local state
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Ionicons name="time" size={16} color="#f59e0b" />;
-      case 'in-progress':
-        return <Ionicons name="trending-up" size={16} color="#3b82f6" />;
-      case 'resolved':
-        return <Ionicons name="checkmark-circle" size={16} color="#10b981" />;
-      default:
-        return <Ionicons name="help-circle" size={16} color="#6b7280" />;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return '#dc2626';
-      case 'in-progress':
-        return '#3b82f6';
-      case 'resolved':
-        return '#10b981';
-      default:
-        return '#6b7280';
-    }
-  };
-
-  const renderMapMarker = (issue: IssueMarker, index: number) => {
-    const isSelected = selectedIssue === issue.id;
-    return (
-      <TouchableOpacity
-        key={issue.id}
-        style={[
-          styles.mapMarker,
-          {
-            backgroundColor: getStatusColor(issue.status),
-            transform: [{ scale: isSelected ? 1.2 : 1 }],
-            top: `${20 + (index * 15)}%`,
-            left: `${25 + (index * 12)}%`,
-          }
-        ]}
-        onPress={() => setSelectedIssue(selectedIssue === issue.id ? null : issue.id)}
-      >
-        <Text style={styles.markerText}>{issue.upvotes}</Text>
-      </TouchableOpacity>
-    );
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Community Issues Map</Text>
+          <Text style={styles.title}>Civic Issues Map</Text>
           <Text style={styles.subtitle}>
-            View and support civic issues in your area
+            Explore and track civic issues in your area
           </Text>
         </View>
 
-        {/* Search and Filters */}
-        <Card>
+        {/* Search and Filter */}
+        <Card style={{ marginBottom: 16 }}>
           <CardContent>
             <View style={styles.searchContainer}>
               <View style={styles.searchInputContainer}>
-                <Ionicons name="search" size={16} color="#6b7280" style={styles.searchIcon} />
+                <Ionicons name="search" size={20} color="#9ca3af" style={styles.searchIcon} />
                 <Input
+                  style={styles.searchInput}
+                  placeholder="Search issues..."
                   value={searchTerm}
                   onChangeText={setSearchTerm}
-                  placeholder="Search issues or locations..."
-                  style={styles.searchInput}
                 />
               </View>
-              <TouchableOpacity
+              <TouchableOpacity 
                 style={styles.filterButton}
                 onPress={() => setShowCategoryFilter(!showCategoryFilter)}
               >
@@ -178,6 +127,7 @@ export default function IssueMapScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* Category Filter */}
             {showCategoryFilter && (
               <View style={styles.categoryFilter}>
                 <TouchableOpacity
@@ -216,102 +166,138 @@ export default function IssueMapScreen() {
           </CardContent>
         </Card>
 
-        {/* Map and Issues List */}
-        <View style={styles.mapContainer}>
-          {/* Mock Map */}
-          <Card style={styles.mapCard}>
-            <CardHeader>
-              <CardTitle style={styles.mapTitle}>
-                <Ionicons name="location" size={20} color="#030213" />
-                <Text style={styles.mapTitleText}>Issues Heatmap</Text>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <View style={styles.mapView}>
-                {filteredIssues.map((issue, index) => renderMapMarker(issue, index))}
-                
-                {/* Map Legend */}
-                <View style={styles.mapLegend}>
-                  <Text style={styles.legendTitle}>Legend</Text>
-                  <View style={styles.legendItems}>
-                    <View style={styles.legendItem}>
-                      <View style={[styles.legendDot, { backgroundColor: '#dc2626' }]} />
-                      <Text style={styles.legendText}>Pending</Text>
-                    </View>
-                    <View style={styles.legendItem}>
-                      <View style={[styles.legendDot, { backgroundColor: '#3b82f6' }]} />
-                      <Text style={styles.legendText}>In Progress</Text>
-                    </View>
-                    <View style={styles.legendItem}>
-                      <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
-                      <Text style={styles.legendText}>Resolved</Text>
-                    </View>
+        {/* Map Section - Fixed Height */}
+        <Card style={styles.mapCard}>
+          <CardHeader>
+            <CardTitle style={styles.mapTitle}>
+              <Ionicons name="location" size={20} color="#030213" />
+              <Text style={styles.mapTitleText}>Issues Map</Text>
+            </CardTitle>
+          </CardHeader>
+          <CardContent style={styles.mapCardContent}>
+            <View style={styles.mapContainer}>
+              <MapView
+                style={styles.map}
+                initialRegion={{
+                  latitude: 12.9716,
+                  longitude: 77.6413,
+                  latitudeDelta: 0.05,
+                  longitudeDelta: 0.05,
+                }}
+                showsUserLocation={true}
+                showsMyLocationButton={true}
+                scrollEnabled={true}
+                zoomEnabled={true}
+                pitchEnabled={true}
+                rotateEnabled={true}
+              >
+                {/* Individual Markers with Custom Colors */}
+                {filteredIssues.map((issue) => (
+                  <Marker
+                    key={issue.id}
+                    coordinate={{
+                      latitude: issue.coordinates.lat,
+                      longitude: issue.coordinates.lng,
+                    }}
+                    title={issue.title}
+                    description={`${issue.category} • ${issue.status} • ${issue.upvotes} upvotes`}
+                    pinColor={
+                      issue.status === 'pending' ? 'red' :
+                      issue.status === 'in-progress' ? 'orange' : 'green'
+                    }
+                    onPress={() => setSelectedIssue(issue.id)}
+                  />
+                ))}
+              </MapView>
+
+              {/* Map Legend */}
+              <View style={styles.mapLegend}>
+                <Text style={styles.legendTitle}>Legend</Text>
+                <View style={styles.legendItems}>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#dc2626' }]} />
+                    <Text style={styles.legendText}>Pending</Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#FF8C00' }]} />
+                    <Text style={styles.legendText}>In Progress</Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
+                    <Text style={styles.legendText}>Resolved</Text>
                   </View>
                 </View>
               </View>
-            </CardContent>
-          </Card>
+            </View>
+          </CardContent>
+        </Card>
 
-          {/* Issues List */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Nearby Issues ({filteredIssues.length})</CardTitle>
-            </CardHeader>
-            <CardContent style={styles.issuesListContent}>
-              <ScrollView style={styles.issuesList} nestedScrollEnabled>
-                {filteredIssues.map((issue) => (
-                  <TouchableOpacity
-                    key={issue.id}
-                    style={[
-                      styles.issueItem,
-                      selectedIssue === issue.id && styles.issueItemSelected
-                    ]}
-                    onPress={() => setSelectedIssue(selectedIssue === issue.id ? null : issue.id)}
-                  >
-                    <View style={styles.issueHeader}>
-                      <View style={styles.issueInfo}>
-                        <Text style={styles.issueTitle}>{issue.title}</Text>
-                        <View style={styles.issueMeta}>
-                          <View style={[
-                            styles.categoryBadge,
-                            { backgroundColor: categoryColors[issue.category] }
-                          ]}>
-                            <Text style={styles.categoryBadgeText}>{issue.category}</Text>
-                          </View>
-                          <View style={styles.statusContainer}>
-                            {getStatusIcon(issue.status)}
-                            <Text style={[styles.statusText, { color: getStatusColor(issue.status) }]}>
-                              {issue.status.replace('-', ' ').toUpperCase()}
-                            </Text>
-                          </View>
-                        </View>
+        {/* Issues List */}
+        <Card style={{ marginTop: 16 }}>
+          <CardHeader>
+            <CardTitle>Nearby Issues ({filteredIssues.length})</CardTitle>
+          </CardHeader>
+          <CardContent style={styles.issuesListContent}>
+            <ScrollView style={styles.issuesList} nestedScrollEnabled>
+              {filteredIssues.map((issue) => (
+                <TouchableOpacity
+                  key={issue.id}
+                  style={[
+                    styles.issueItem,
+                    selectedIssue === issue.id && styles.issueItemSelected
+                  ]}
+                  onPress={() => setSelectedIssue(selectedIssue === issue.id ? null : issue.id)}
+                >
+                  <View style={styles.issueHeader}>
+                    <View style={styles.issueTitleContainer}>
+                      <Text style={styles.issueTitle}>{issue.title}</Text>
+                      <View style={[
+                        styles.statusBadge,
+                        { backgroundColor: categoryColors[issue.category] }
+                      ]}>
+                        <Text style={styles.statusText}>{issue.category}</Text>
                       </View>
-                      <Button
-                        title={`↑ ${issue.upvotes}`}
-                        variant="outline"
-                        size="sm"
-                        onPress={() => handleUpvote(issue.id)}
-                        style={styles.upvoteButton}
+                    </View>
+                    <View style={[
+                      styles.statusIndicator,
+                      { backgroundColor: 
+                        issue.status === 'pending' ? '#dc2626' :
+                        issue.status === 'in-progress' ? '#3b82f6' : '#10b981'
+                      }
+                    ]} />
+                  </View>
+
+                  <Text style={styles.issueLocation}>
+                    <Ionicons name="location-outline" size={14} color="#6b7280" />
+                    {' '}{issue.location}
+                  </Text>
+
+                  <View style={styles.issueFooter}>
+                    <Text style={styles.issueDistance}>{issue.distance}</Text>
+                    <View style={styles.issueStats}>
+                      <Ionicons name="arrow-up" size={14} color="#10b981" />
+                      <Text style={styles.upvotes}>{issue.upvotes}</Text>
+                    </View>
+                    <Text style={styles.timestamp}>{issue.timestamp}</Text>
+                  </View>
+
+                  {selectedIssue === issue.id && (
+                    <View style={styles.issueDetails}>
+                      <Text style={styles.detailLabel}>Status: {issue.status}</Text>
+                      <Text style={styles.detailLabel}>Category: {issue.category}</Text>
+                      <Button 
+                        title="View Details"
+                        onPress={() => {
+                          console.log(`View details for issue: ${issue.id}`);
+                        }}
                       />
                     </View>
-                    
-                    <View style={styles.issueFooter}>
-                      <View style={styles.locationInfo}>
-                        <Ionicons name="location-outline" size={12} color="#6b7280" />
-                        <Text style={styles.locationText}>{issue.location}</Text>
-                      </View>
-                      <View style={styles.timeInfo}>
-                        <Text style={styles.distanceText}>{issue.distance}</Text>
-                        <Text style={styles.separatorText}>•</Text>
-                        <Text style={styles.timeText}>{issue.timestamp}</Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </CardContent>
-          </Card>
-        </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </CardContent>
+        </Card>
 
         {/* Statistics */}
         <View style={styles.statsContainer}>
@@ -425,11 +411,12 @@ const styles = StyleSheet.create({
   categoryChipTextActive: {
     color: '#ffffff',
   },
-  mapContainer: {
-    gap: 16,
-  },
   mapCard: {
-    height: 300,
+    height: 350, // Fixed height for the map card
+  },
+  mapCardContent: {
+    flex: 1,
+    padding: 0, // Remove default padding for map
   },
   mapTitle: {
     flexDirection: 'row',
@@ -441,43 +428,27 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#030213',
   },
-  mapView: {
+  mapContainer: {
     flex: 1,
-    backgroundColor: '#dbeafe',
-    borderRadius: 8,
     position: 'relative',
+    borderRadius: 8,
     overflow: 'hidden',
+    backgroundColor: '#e5e7eb', // Fallback color while map loads
   },
-  mapMarker: {
-    position: 'absolute',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  markerText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '600',
+  map: {
+    width: '100%',
+    height: '100%',
   },
   mapLegend: {
     position: 'absolute',
     bottom: 16,
     right: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     padding: 12,
     borderRadius: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 3,
   },
@@ -502,11 +473,10 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 10,
-    color: '#6b7280',
+    color: '#030213',
   },
   issuesListContent: {
-    maxHeight: 400,
-    padding: 0,
+    paddingVertical: 0,
   },
   issuesList: {
     maxHeight: 400,
@@ -518,7 +488,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   issueItemSelected: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#f0f9ff',
+    borderLeftWidth: 4,
+    borderLeftColor: '#3b82f6',
   },
   issueHeader: {
     flexDirection: 'row',
@@ -526,95 +498,93 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 8,
   },
-  issueInfo: {
+  issueTitleContainer: {
     flex: 1,
     marginRight: 12,
   },
   issueTitle: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#030213',
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  issueMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  categoryBadge: {
+  statusBadge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
-  },
-  categoryBadgeText: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: '#030213',
-  },
-  statusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+    alignSelf: 'flex-start',
   },
   statusText: {
     fontSize: 10,
     fontWeight: '500',
+    color: '#ffffff',
   },
-  upvoteButton: {
-    minWidth: 60,
+  statusIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  issueLocation: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 8,
   },
   issueFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  locationInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    flex: 1,
-  },
-  locationText: {
+  issueDistance: {
     fontSize: 12,
-    color: '#6b7280',
+    color: '#9ca3af',
   },
-  timeInfo: {
+  issueStats: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  distanceText: {
+  upvotes: {
     fontSize: 12,
-    color: '#6b7280',
+    fontWeight: '600',
+    color: '#10b981',
   },
-  separatorText: {
+  timestamp: {
     fontSize: 12,
-    color: '#6b7280',
+    color: '#9ca3af',
   },
-  timeText: {
+  issueDetails: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+    gap: 4,
+  },
+  detailLabel: {
     fontSize: 12,
     color: '#6b7280',
+    marginBottom: 4,
   },
   statsContainer: {
     flexDirection: 'row',
     gap: 12,
+    marginTop: 16,
   },
   statCard: {
     flex: 1,
-    marginBottom: 0,
   },
   statContent: {
     alignItems: 'center',
-    padding: 16,
+    paddingVertical: 16,
   },
   statNumber: {
     fontSize: 24,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#030213',
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
     color: '#6b7280',
+    textAlign: 'center',
   },
 });

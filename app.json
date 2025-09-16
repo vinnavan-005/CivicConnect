@@ -58,6 +58,12 @@
           "microphonePermission": "Allow CivicReport to access your microphone to record audio descriptions."
         }
       ],
+      [
+        "@rnmapbox/maps",
+        {
+         "RNMapboxMapsDownloadToken": "sk.eyJ1IjoicGF0aWVudC16ZXJvNjk2OSIsImEiOiJjbWZtOWxxaXkwZHU4MmxzNm53aXo2bzhqIn0.yfs_PhmJ3gg22X9IqTMC6w"
+        }
+      ],
       "expo-font",
       "expo-web-browser",
       "expo-audio",

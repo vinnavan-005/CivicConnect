@@ -34,5 +34,6 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
-
+# API Keys and Secrets
+.env
 app-example
