@@ -94,6 +94,16 @@ export default function IssueMapScreen() {
     return matchesSearch && matchesCategory;
   });
 
+  // Sort filtered issues to show selected issue first
+  const sortedIssues = React.useMemo(() => {
+    if (!selectedIssue) return filteredIssues;
+    
+    const selectedIssueData = filteredIssues.find(issue => issue.id === selectedIssue);
+    const otherIssues = filteredIssues.filter(issue => issue.id !== selectedIssue);
+    
+    return selectedIssueData ? [selectedIssueData, ...otherIssues] : filteredIssues;
+  }, [filteredIssues, selectedIssue]);
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -239,7 +249,7 @@ export default function IssueMapScreen() {
           </CardHeader>
           <CardContent style={styles.issuesListContent}>
             <ScrollView style={styles.issuesList} nestedScrollEnabled>
-              {filteredIssues.map((issue) => (
+              {sortedIssues.map((issue) => (
                 <TouchableOpacity
                   key={issue.id}
                   style={[

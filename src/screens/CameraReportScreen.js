@@ -1,59 +1,68 @@
 // src/screens/CameraReportScreen.js
 import { Ionicons } from '@expo/vector-icons';
+import { Picker } from '@react-native-picker/picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { router } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
+import IssueService from '../../services/issueService';
+
+const categories = [
+  { label: 'Roads & Infrastructure', value: 'roads' },
+  { label: 'Waste Management', value: 'waste' },
+  { label: 'Water & Utilities', value: 'water' },
+  { label: 'Street Lighting', value: 'streetlight' },
+  { label: 'Other Issues', value: 'other' },
+];
+
 export default function CameraReportScreen() {
-  const router = useRouter();
-  const [facing, setFacing] = useState('back');
   const [permission, requestPermission] = useCameraPermissions();
+  const [facing, setFacing] = useState('back');
   const [capturedImage, setCapturedImage] = useState(null);
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
+  const [category, setCategory] = useState('roads');
   const [currentLocation, setCurrentLocation] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const cameraRef = useRef(null);
 
   useEffect(() => {
-    // Get location permissions and current location
-    (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        let locationResult = await Location.getCurrentPositionAsync({});
-        setCurrentLocation(locationResult);
-        // Set a default location string (you'll replace this with reverse geocoding later)
-        setLocation(`${locationResult.coords.latitude.toFixed(6)}, ${locationResult.coords.longitude.toFixed(6)}`);
-      }
-    })();
+    getCurrentLocation();
   }, []);
 
-  if (!permission) {
-    return <View />;
-  }
+  async function getCurrentLocation() {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission denied', 'Location permission is required to automatically detect your location.');
+        return;
+      }
 
-  if (!permission.granted) {
-    return (
-      <View style={styles.permissionContainer}>
-        <Text style={styles.permissionText}>We need your permission to show the camera</Text>
-        <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
-          <Text style={styles.permissionButtonText}>Grant Permission</Text>
-        </TouchableOpacity>
-      </View>
-    );
+      const location = await Location.getCurrentPositionAsync({});
+      setCurrentLocation(location);
+      
+      // Automatically set coordinates as default location
+      if (location) {
+        setLocation(`${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`);
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+    }
   }
 
   function toggleCameraFacing() {
@@ -63,9 +72,11 @@ export default function CameraReportScreen() {
   async function takePicture() {
     if (cameraRef.current) {
       try {
-        const photo = await cameraRef.current.takePictureAsync();
+        const photo = await cameraRef.current.takePictureAsync({
+          quality: 0.8,
+          base64: false,
+        });
         setCapturedImage(photo.uri);
-        console.log('Photo taken:', photo.uri);
       } catch (error) {
         console.error('Error taking picture:', error);
         Alert.alert('Error', 'Failed to take picture. Please try again.');
@@ -96,24 +107,34 @@ export default function CameraReportScreen() {
     setIsSubmitting(true);
 
     try {
-      // TODO: Here you'll integrate with your backend API
-      const reportData = {
-        image: capturedImage,
+      // Parse coordinates from location string if it's in lat,lng format
+      let latitude;
+      let longitude;
+      
+      if (currentLocation) {
+        latitude = currentLocation.coords.latitude;
+        longitude = currentLocation.coords.longitude;
+      } else {
+        // Try to parse coordinates from location string
+        const coordPattern = /^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/;
+        const match = location.match(coordPattern);
+        if (match) {
+          latitude = parseFloat(match[1]);
+          longitude = parseFloat(match[2]);
+        }
+      }
+
+      // Create the issue with image
+      const issueData = {
+        title: `${IssueService.getCategoryDisplayName(category)} Issue`,
         description: description.trim(),
-        location: location.trim(),
-        coordinates: currentLocation ? {
-          latitude: currentLocation.coords.latitude,
-          longitude: currentLocation.coords.longitude,
-        } : null,
-        timestamp: new Date().toISOString(),
-        // Add audio recording when implemented
-        audioRecording: null, // Placeholder for future audio integration
+        category: category,
+        latitude,
+        longitude,
+        imageUri: capturedImage,
       };
 
-      console.log('Report submitted:', reportData);
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const response = await IssueService.createIssueWithImage(issueData);
 
       Alert.alert(
         'Success!', 
@@ -134,7 +155,8 @@ export default function CameraReportScreen() {
 
     } catch (error) {
       console.error('Error submitting report:', error);
-      Alert.alert('Error', 'Failed to submit report. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to submit report. Please try again.';
+      Alert.alert('Error', errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -154,7 +176,7 @@ export default function CameraReportScreen() {
     if (currentLocation) {
       Alert.alert(
         'Use GPS Location',
-        'GPS location integration will be implemented here. This will automatically fetch and format your current address.',
+        'Use your current GPS coordinates as the location?',
         [
           {
             text: 'Use Coordinates',
@@ -166,8 +188,30 @@ export default function CameraReportScreen() {
         ]
       );
     } else {
-      Alert.alert('GPS Not Available', 'Location services are not available.');
+      Alert.alert('GPS Not Available', 'Location services are not available. Please enter the location manually.');
     }
+  }
+
+  if (!permission) {
+    // Camera permissions are still loading
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text>Loading camera...</Text>
+      </View>
+    );
+  }
+
+  if (!permission.granted) {
+    // Camera permissions are not granted yet
+    return (
+      <View style={styles.container}>
+        <Text style={styles.message}>We need your permission to show the camera</Text>
+        <TouchableOpacity onPress={requestPermission} style={styles.permissionButton}>
+          <Text style={styles.permissionButtonText}>Grant Permission</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   if (capturedImage) {
@@ -176,50 +220,84 @@ export default function CameraReportScreen() {
         style={styles.container} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.formContainer}>
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color="white" />
+              <Ionicons name="arrow-back" size={24} color="#007AFF" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>New Report</Text>
+            <Text style={styles.headerTitle}>Complete Report</Text>
             <View style={styles.placeholder} />
           </View>
 
-          {/* Captured Image */}
+          {/* Image Preview */}
           <View style={styles.imageContainer}>
             <Image source={{ uri: capturedImage }} style={styles.capturedImage} />
             <TouchableOpacity style={styles.retakeButton} onPress={retakePicture}>
               <Ionicons name="camera" size={20} color="white" />
-              <Text style={styles.retakeText}>Retake</Text>
+              <Text style={styles.retakeButtonText}>Retake Photo</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Form Fields */}
-          <View style={styles.formFields}>
-            {/* Description Section */}
+          <View style={styles.form}>
+            {/* Category Selection */}
+            <View style={styles.fieldContainer}>
+              <Text style={styles.fieldLabel}>Category *</Text>
+              <TouchableOpacity
+                style={styles.categorySelector}
+                onPress={() => setShowCategoryPicker(!showCategoryPicker)}
+              >
+                <Text style={styles.categoryText}>
+                  {categories.find(cat => cat.value === category)?.label}
+                </Text>
+                <Ionicons name={showCategoryPicker ? "chevron-up" : "chevron-down"} size={20} color="#666" />
+              </TouchableOpacity>
+              
+              {showCategoryPicker && (
+                <View style={styles.categoryPicker}>
+                  <Picker
+                    selectedValue={category}
+                    onValueChange={(itemValue) => {
+                      setCategory(itemValue);
+                      setShowCategoryPicker(false);
+                    }}
+                    style={styles.picker}
+                  >
+                    {categories.map((cat) => (
+                      <Picker.Item key={cat.value} label={cat.label} value={cat.value} />
+                    ))}
+                  </Picker>
+                </View>
+              )}
+            </View>
+
+            {/* Description */}
             <View style={styles.fieldContainer}>
               <Text style={styles.fieldLabel}>Description *</Text>
-              <View style={styles.inputRow}>
-                <TextInput
-                  style={[styles.textInput, styles.descriptionInput]}
-                  multiline
-                  numberOfLines={4}
-                  placeholder="Describe the civic issue (e.g., pothole on main road, broken streetlight, overflowing garbage bin...)"
-                  value={description}
-                  onChangeText={setDescription}
-                  textAlignVertical="top"
-                />
-                <TouchableOpacity style={styles.audioButton} onPress={recordAudio}>
-                  <Ionicons name="mic" size={20} color="#007AFF" />
-                </TouchableOpacity>
-              </View>
+              <TextInput
+                style={styles.textAreaInput}
+                placeholder="Describe the issue in detail..."
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+            </View>
+
+            {/* Audio Recording Placeholder */}
+            <View style={styles.fieldContainer}>
+              <Text style={styles.fieldLabel}>Voice Note (Optional)</Text>
+              <TouchableOpacity style={styles.audioButton} onPress={recordAudio}>
+                <Ionicons name="mic" size={20} color="#007AFF" />
+                <Text style={styles.audioButtonText}>Add Voice Note</Text>
+              </TouchableOpacity>
               <Text style={styles.placeholderText}>
-                💡 Audio recording feature will be added here for voice descriptions
+                🎤 Voice recording feature will be added here for additional context
               </Text>
             </View>
 
-            {/* Location Section */}
+            {/* Location */}
             <View style={styles.fieldContainer}>
               <Text style={styles.fieldLabel}>Location *</Text>
               <View style={styles.inputRow}>
@@ -234,7 +312,7 @@ export default function CameraReportScreen() {
                 </TouchableOpacity>
               </View>
               <Text style={styles.placeholderText}>
-                📍 GPS location integration will be added here for automatic address detection
+                📍 GPS location: {currentLocation ? 'Available' : 'Not available'}
               </Text>
             </View>
 
@@ -245,12 +323,15 @@ export default function CameraReportScreen() {
               disabled={isSubmitting}
             >
               {isSubmitting ? (
-                <Text style={styles.submitButtonText}>Submitting...</Text>
+                <View style={styles.submitButtonContent}>
+                  <ActivityIndicator size="small" color="white" />
+                  <Text style={styles.submitButtonText}>Submitting...</Text>
+                </View>
               ) : (
-                <>
+                <View style={styles.submitButtonContent}>
                   <Ionicons name="send" size={20} color="white" />
                   <Text style={styles.submitButtonText}>Submit Report</Text>
-                </>
+                </View>
               )}
             </TouchableOpacity>
           </View>
@@ -296,31 +377,25 @@ export default function CameraReportScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'black',
+    backgroundColor: '#000',
   },
-  permissionContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#f8f9fa',
-  },
-  permissionText: {
-    fontSize: 18,
+  message: {
     textAlign: 'center',
-    marginBottom: 20,
+    paddingBottom: 10,
     color: '#333',
+    fontSize: 16,
   },
   permissionButton: {
     backgroundColor: '#007AFF',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    padding: 15,
     borderRadius: 8,
+    margin: 20,
+    alignItems: 'center',
   },
   permissionButtonText: {
     color: 'white',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
   camera: {
     flex: 1,
@@ -334,37 +409,17 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 50,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    backgroundColor: '#007AFF',
-  },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: 'white',
-  },
   cameraHeaderTitle: {
+    color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
-    color: 'white',
-  },
-  placeholder: {
-    width: 40,
   },
   cameraControls: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     paddingBottom: 40,
     paddingTop: 20,
   },
@@ -372,13 +427,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: 50,
+    marginBottom: 20,
   },
   controlButton: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -398,53 +454,70 @@ const styles = StyleSheet.create({
   },
   instructionText: {
     color: 'white',
-    fontSize: 14,
     textAlign: 'center',
-    marginTop: 15,
+    fontSize: 14,
     paddingHorizontal: 20,
   },
+  placeholder: {
+    width: 50,
+  },
+  // Form styles
   formContainer: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f5f5f5',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    paddingTop: 50,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  backButton: {
+    padding: 5,
   },
   imageContainer: {
-    position: 'relative',
-    marginHorizontal: 20,
-    marginVertical: 20,
+    backgroundColor: 'white',
+    margin: 16,
     borderRadius: 12,
     overflow: 'hidden',
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowRadius: 4,
   },
   capturedImage: {
     width: '100%',
     height: 250,
+    resizeMode: 'cover',
   },
   retakeButton: {
-    position: 'absolute',
-    bottom: 10,
-    right: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
+    justifyContent: 'center',
+    backgroundColor: '#007AFF',
+    padding: 12,
+    gap: 8,
   },
-  retakeText: {
+  retakeButtonText: {
     color: 'white',
-    marginLeft: 5,
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 16,
+    fontWeight: '600',
   },
-  formFields: {
-    padding: 20,
+  form: {
+    padding: 16,
   },
   fieldContainer: {
-    marginBottom: 25,
+    marginBottom: 20,
   },
   fieldLabel: {
     fontSize: 16,
@@ -452,82 +525,100 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 8,
   },
-  inputRow: {
+  categorySelector: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  categoryText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  categoryPicker: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    marginTop: 5,
+  },
+  picker: {
+    height: 150,
   },
   textInput: {
+    backgroundColor: 'white',
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: 'white',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
   },
-  descriptionInput: {
-    flex: 1,
-    height: 100,
+  textAreaInput: {
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
     textAlignVertical: 'top',
-    marginRight: 10,
+    minHeight: 100,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    gap: 8,
   },
   locationInput: {
     flex: 1,
-    marginRight: 10,
-  },
-  audioButton: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
-    backgroundColor: 'white',
-    borderWidth: 2,
-    borderColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
   },
   gpsButton: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
-    backgroundColor: 'white',
-    borderWidth: 2,
-    borderColor: '#007AFF',
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+    padding: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    minWidth: 50,
+  },
+  audioButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    padding: 12,
+    gap: 8,
+  },
+  audioButtonText: {
+    color: '#007AFF',
+    fontSize: 16,
   },
   placeholderText: {
     fontSize: 12,
     color: '#666',
-    fontStyle: 'italic',
     marginTop: 5,
-    paddingHorizontal: 5,
+    fontStyle: 'italic',
   },
   submitButton: {
     backgroundColor: '#007AFF',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 15,
     borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
     marginTop: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 40,
   },
   submitButtonDisabled: {
-    backgroundColor: '#999',
+    backgroundColor: '#ccc',
+  },
+  submitButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   submitButtonText: {
     color: 'white',
     fontSize: 18,
-    fontWeight: '600',
-    marginLeft: 8,
+    fontWeight: 'bold',
   },
 });

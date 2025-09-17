@@ -1,11 +1,13 @@
+// app/(auth)/login.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Input } from '../../components/ui/input';
+import AuthService from '../../services/authService';
 import { User } from '../../types';
 import { StorageService } from '../../utils/storage';
 
@@ -22,19 +24,39 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
+    if (!loginForm.email || !loginForm.password) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
     setLoading(true);
     try {
-      // Mock login - in real app would validate credentials
-      const user: User = {
-        name: 'John Doe',
+      const response = await AuthService.login({
         email: loginForm.email,
-        phone: '+1 (555) 123-4567'
-      };
-      
-      await StorageService.saveUser(user);
-      router.replace('/(tabs)');
+        password: loginForm.password
+      });
+
+      if (response.success && response.user) {
+        // Convert API user to local user format
+        const user: User = {
+          name: response.user.full_name || 'User',
+          email: loginForm.email,
+          phone: response.user.phone || ''
+        };
+        
+        await StorageService.saveUser(user);
+        
+        Alert.alert('Success', 'Login successful!', [
+          {
+            text: 'OK',
+            onPress: () => router.replace('/(tabs)')
+          }
+        ]);
+      }
     } catch (error) {
       console.error('Login error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Login failed. Please check your credentials.';
+      Alert.alert('Login Failed', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -42,22 +64,50 @@ export default function LoginScreen() {
 
   const handleRegister = async () => {
     if (registerForm.password !== registerForm.confirmPassword) {
-      alert('Passwords do not match');
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
+    if (!registerForm.name || !registerForm.email || !registerForm.password) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    if (registerForm.password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters long');
       return;
     }
     
     setLoading(true);
     try {
-      const user: User = {
-        name: registerForm.name,
+      const response = await AuthService.register({
         email: registerForm.email,
-        phone: registerForm.phone
-      };
-      
-      await StorageService.saveUser(user);
-      router.replace('/(tabs)');
+        password: registerForm.password,
+        full_name: registerForm.name,
+        phone: registerForm.phone || undefined
+      });
+
+      if (response.success && response.user) {
+        // Convert API user to local user format
+        const user: User = {
+          name: response.user.full_name || registerForm.name,
+          email: registerForm.email,
+          phone: response.user.phone || registerForm.phone
+        };
+        
+        await StorageService.saveUser(user);
+        
+        Alert.alert('Success', 'Account created successfully!', [
+          {
+            text: 'OK',
+            onPress: () => router.replace('/(tabs)')
+          }
+        ]);
+      }
     } catch (error) {
       console.error('Registration error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Registration failed. Please try again.';
+      Alert.alert('Registration Failed', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -164,15 +214,14 @@ export default function LoginScreen() {
                   label="Phone Number"
                   value={registerForm.phone}
                   onChangeText={(text) => setRegisterForm({ ...registerForm, phone: text })}
-                  placeholder="Enter your phone number"
+                  placeholder="Enter your phone number (optional)"
                   keyboardType="phone-pad"
-                  required
                 />
                 <Input
                   label="Password"
                   value={registerForm.password}
                   onChangeText={(text) => setRegisterForm({ ...registerForm, password: text })}
-                  placeholder="Create a password"
+                  placeholder="Create a password (min 6 characters)"
                   secureTextEntry
                   required
                 />
